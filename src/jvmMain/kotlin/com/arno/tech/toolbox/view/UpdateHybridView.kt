@@ -11,9 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.AwtWindow
-import java.awt.FileDialog
-import java.awt.Frame
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileSystemView
@@ -23,9 +20,12 @@ import javax.swing.filechooser.FileSystemView
 fun UpgradeHybridScreen() {
     val rootProjectPath = remember { mutableStateOf("") }
     val downloadHybridUrl = remember { mutableStateOf("") }
+    val cachePath = remember { mutableStateOf("") }
+    val isDownloading = remember { mutableStateOf(false) }
+    val isClickable = remember { mutableStateOf(false) }
     Column {
         Row(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -33,14 +33,31 @@ fun UpgradeHybridScreen() {
                 text = "工程目录:"
             )
             Spacer(modifier = Modifier.width(10.dp))
-            ChooseFilePath(
+            FileChooser(
                 defaultFilePath = rootProjectPath.value,
                 onFileChanged = { rootProjectPath.value = it },
             )
         }
+        Spacer(modifier = Modifier.width(10.dp))
 
         Row(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "下载缓存目录:"
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            FileChooser(
+                defaultFilePath = cachePath.value,
+                onFileChanged = { cachePath.value = it },
+            )
+        }
+        Spacer(modifier = Modifier.size(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -48,9 +65,21 @@ fun UpgradeHybridScreen() {
                 text = "资源下载地址:"
             )
             Spacer(modifier = Modifier.width(10.dp))
-            ChooseFilePath(
-                defaultFilePath = rootProjectPath.value,
-                onFileChanged = { rootProjectPath.value = it },
+            DownloadResource(
+                url = downloadHybridUrl.value,
+                onDownLoadClick = {
+                    println("click download")
+                    isClickable.value = false
+                    // TODO: 2022/7/5 下载流程待实现
+                },
+                onValueChanged = {
+                    downloadHybridUrl.value = it
+                    //当没开始下载时候可以开始执行下载
+                    if (!isDownloading.value) {
+                        isClickable.value = true
+                    }
+                },
+                clickable = isClickable.value
             )
         }
     }
@@ -58,88 +87,51 @@ fun UpgradeHybridScreen() {
 }
 
 @Composable
-fun DownloadResource(url: String? = "") {
-
+fun DownloadResource(
+    url: String?,
+    onDownLoadClick: () -> Unit,
+    onValueChanged: (String) -> Unit,
+    hints: String? = null,
+    clickable: Boolean = false,
+) {
+    Row {
+        TextField(
+            value = url ?: "",
+            onValueChange = onValueChanged,
+            placeholder = { Text(hints ?: "") }
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Button(enabled = clickable, onClick = onDownLoadClick) {
+            Text("下载")
+        }
+    }
 }
 
 @Composable
-fun ChooseFilePath(
+fun FileChooser(
     modifier: Modifier? = null,
     defaultFilePath: String?,
     onFileChanged: (String) -> Unit,
-    hints: String? = null
+    hints: String? = null,
+    readOnly: Boolean = false
 ) {
-//    val isFileChooserOpen = remember { mutableStateOf(false) }
     Row {
         TextField(
             value = defaultFilePath ?: "",
-            readOnly = true,//不能修改
+            readOnly = readOnly,
             onValueChange = onFileChanged,
-            placeholder = { Text("请输入SinaNews工程路径") }
+            placeholder = { Text(hints ?: "") }
         )
         Spacer(modifier = Modifier.width(10.dp))
         Button(
             onClick = {
-//                isFileChooserOpen.value = true
-                onFileChanged(fileChooserDialog("请选择SinaNews工程路径"))
+                onFileChanged(fileChooserDialog(hints))
             },
         ) {
             Text("...")
         }
-//        if (isFileChooserOpen.value) {
-//            FileDialog(
-//                onCloseRequest = {
-//                    isFileChooserOpen.value = false
-//                    it?.let(onFileChanged)
-//                    println("Result $it")
-//                }
-//            )
-//        }
     }
 
-}
-
-@Composable
-private fun FileDialog(
-    parent: Frame? = null,
-    onCloseRequest: (result: String?) -> Unit
-) = AwtWindow(
-    create = {
-        object : FileDialog(parent, "Choose a file", LOAD) {
-            override fun setVisible(value: Boolean) {
-                super.setVisible(value)
-                if (value) {
-                    onCloseRequest(file)
-                }
-            }
-        }
-    },
-    dispose = FileDialog::dispose
-)
-
-@Composable
-fun FileChooserDialog(
-    title: String,
-    mode: Int = JFileChooser.FILES_AND_DIRECTORIES,
-    currentPath: File? = null,
-    onResult: (result: File) -> Unit
-) {
-    val fileChooser = JFileChooser(FileSystemView.getFileSystemView())
-//    fileChooser.currentDirectory = File(System.getProperty("user.dir"))
-    fileChooser.apply {
-        dialogTitle = title
-        fileSelectionMode = mode
-        isAcceptAllFileFilterUsed = true
-        selectedFile = null
-        currentDirectory = currentPath
-    }
-    if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-        val file = fileChooser.selectedFile
-        println("choose file or folder is: $file")
-        onResult(file)
-    } else {
-        println("No Selection ")
-    }
 }
 
 fun fileChooserDialog(
@@ -152,14 +144,53 @@ fun fileChooserDialog(
     fileChooser.isAcceptAllFileFilterUsed = true
     fileChooser.selectedFile = null
     fileChooser.currentDirectory = null
-    val file = if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+    return if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
         fileChooser.selectedFile.toString()
     } else {
-
         ""
-
     }
-
-    return file
-
 }
+
+
+//@Composable
+//private fun FileDialog(
+//    parent: Frame? = null,
+//    onCloseRequest: (result: String?) -> Unit
+//) = AwtWindow(
+//    create = {
+//        object : FileDialog(parent, "Choose a file", LOAD) {
+//            override fun setVisible(value: Boolean) {
+//                super.setVisible(value)
+//                if (value) {
+//                    onCloseRequest(file)
+//                }
+//            }
+//        }
+//    },
+//    dispose = FileDialog::dispose
+//)
+//
+//@Composable
+//fun FileChooserDialog(
+//    title: String,
+//    mode: Int = JFileChooser.FILES_AND_DIRECTORIES,
+//    currentPath: File? = null,
+//    onResult: (result: File) -> Unit
+//) {
+//    val fileChooser = JFileChooser(FileSystemView.getFileSystemView())
+////    fileChooser.currentDirectory = File(System.getProperty("user.dir"))
+//    fileChooser.apply {
+//        dialogTitle = title
+//        fileSelectionMode = mode
+//        isAcceptAllFileFilterUsed = true
+//        selectedFile = null
+//        currentDirectory = currentPath
+//    }
+//    if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+//        val file = fileChooser.selectedFile
+//        println("choose file or folder is: $file")
+//        onResult(file)
+//    } else {
+//        println("No Selection ")
+//    }
+//}
