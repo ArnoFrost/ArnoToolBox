@@ -2,17 +2,23 @@ package com.arno.tech.toolbox.view
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
+import androidx.compose.material.Button
+import androidx.compose.material.LinearProgressIndicator
+import androidx.compose.material.Text
+import androidx.compose.material.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.*
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileSystemView
+import kotlin.random.Random
 
+@OptIn(DelicateCoroutinesApi::class)
 @Preview
 @Composable
 fun UpgradeHybridScreen() {
@@ -70,14 +76,22 @@ fun UpgradeHybridScreen() {
                     println("click download")
                     isClickable.value = false
                     // TODO: 2022/7/5 下载流程待实现
-                    fun fakeDownload() {
+                    suspend fun fakeDownload() {
                         downloadProgress.value = 0F
-                        for (i in 0..10) {
-                            downloadProgress.value += 0.1F
+                        while (downloadProgress.value < 1) {
+                            delay(300L)
+                            var tempAddValue = Random.nextFloat()
+                            // 最多1
+                            if (downloadProgress.value + tempAddValue > 1) {
+                                tempAddValue = 1 - downloadProgress.value
+                            }
+                            downloadProgress.value += tempAddValue
                         }
                     }
+                    GlobalScope.launch(Dispatchers.Default) {
+                        fakeDownload()
+                    }
 
-                    fakeDownload()
                 },
                 onUrlChanged = {
                     downloadHybridUrl.value = it
@@ -90,7 +104,7 @@ fun UpgradeHybridScreen() {
             )
         }
         Spacer(modifier = Modifier.width(10.dp))
-        Text(modifier = Modifier.align(Alignment.CenterHorizontally), text = "下载进度:")
+        Text(modifier = Modifier.align(Alignment.CenterHorizontally), text = "下载进度: ${downloadProgress.value * 100} % ")
         LinearProgressIndicator(
             modifier = Modifier.align(Alignment.CenterHorizontally),
             progress = downloadProgress.value
