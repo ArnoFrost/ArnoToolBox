@@ -2,9 +2,7 @@ package com.arno.tech.toolbox.view
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
-import androidx.compose.material.Text
-import androidx.compose.material.TextField
+import androidx.compose.material.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +21,7 @@ fun UpgradeHybridScreen() {
     val cachePath = remember { mutableStateOf("") }
     val isDownloading = remember { mutableStateOf(false) }
     val isClickable = remember { mutableStateOf(false) }
+    val downloadProgress = remember { mutableStateOf(0F) }
     Column {
         Row(
             modifier = Modifier.fillMaxWidth().padding(10.dp),
@@ -71,8 +70,16 @@ fun UpgradeHybridScreen() {
                     println("click download")
                     isClickable.value = false
                     // TODO: 2022/7/5 下载流程待实现
+                    fun fakeDownload() {
+                        downloadProgress.value = 0F
+                        for (i in 0..10) {
+                            downloadProgress.value += 0.1F
+                        }
+                    }
+
+                    fakeDownload()
                 },
-                onValueChanged = {
+                onUrlChanged = {
                     downloadHybridUrl.value = it
                     //当没开始下载时候可以开始执行下载
                     if (!isDownloading.value) {
@@ -82,6 +89,13 @@ fun UpgradeHybridScreen() {
                 clickable = isClickable.value
             )
         }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(modifier = Modifier.align(Alignment.CenterHorizontally), text = "下载进度:")
+        LinearProgressIndicator(
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            progress = downloadProgress.value
+        )
+
     }
 
 }
@@ -90,14 +104,14 @@ fun UpgradeHybridScreen() {
 fun DownloadResource(
     url: String?,
     onDownLoadClick: () -> Unit,
-    onValueChanged: (String) -> Unit,
+    onUrlChanged: (String) -> Unit,
     hints: String? = null,
     clickable: Boolean = false,
 ) {
     Row {
         TextField(
             value = url ?: "",
-            onValueChange = onValueChanged,
+            onValueChange = onUrlChanged,
             placeholder = { Text(hints ?: "") }
         )
         Spacer(modifier = Modifier.width(10.dp))
@@ -109,7 +123,6 @@ fun DownloadResource(
 
 @Composable
 fun FileChooser(
-    modifier: Modifier? = null,
     defaultFilePath: String?,
     onFileChanged: (String) -> Unit,
     hints: String? = null,

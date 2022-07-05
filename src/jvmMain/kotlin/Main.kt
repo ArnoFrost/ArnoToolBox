@@ -2,6 +2,7 @@
 import androidx.compose.material.MaterialTheme
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.material.Button
+import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,16 +13,19 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.arno.tech.toolbox.view.UpgradeHybridScreen
 
-@Composable
-@Preview
-fun App() {
-    MaterialTheme {
-        UpgradeHybridScreen()
+fun main() = application {
+    Window(onCloseRequest = ::exitApplication) {
+        Scaffold {
+
+        }
+        UpgradeHybridApp()
     }
 }
 
-fun main() = application {
-    Window(onCloseRequest = ::exitApplication) {
-        App()
+@Composable
+@Preview
+fun UpgradeHybridApp() {
+    MaterialTheme {
+        UpgradeHybridScreen()
     }
 }
