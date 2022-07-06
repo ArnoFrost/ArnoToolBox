@@ -13,13 +13,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import com.arno.tech.toolbox.util.FileUtils
-import com.arno.tech.toolbox.util.downloadFile
 import com.arno.tech.toolbox.viewmodel.UpgradeHybridViewModel
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileSystemView
@@ -52,6 +48,7 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
     val isClickable = viewModel.isClickable.collectAsState(false)
     val downloadProgress = viewModel.downloadProgress.collectAsState(0F)
     val logString = viewModel.logString.collectAsState("")
+    val logError = viewModel.logError.collectAsState(false)
     val logScrollState = rememberScrollState(0)
 
     val isAutoUnZip = viewModel.isAutoUnZip.collectAsState(false)
@@ -67,7 +64,7 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
         Spacer(modifier = Modifier.size(10.dp))
 
         //下载地址
-        Download(downloadHybridUrl, viewModel, scope, cachePath, isDownloading, isClickable)
+        Download(downloadHybridUrl, viewModel, isDownloading, isClickable)
         Spacer(modifier = Modifier.size(10.dp))
         Row(horizontalArrangement = Arrangement.SpaceAround) {
             //自动任务选择
@@ -80,7 +77,7 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
         Divider(color = Color.Gray, modifier = Modifier.height(1.dp).fillMaxWidth())
         Spacer(modifier = Modifier.size(10.dp))
         //日志输出
-        LogConsole(logScrollState, logString, scope)
+        LogConsole(logScrollState, logString, logError, scope)
     }
 
 }
@@ -89,6 +86,7 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
 private fun LogConsole(
     logScrollState: ScrollState,
     logString: State<String>,
+    logError: State<Boolean>,
     scope: CoroutineScope
 ) {
     Row {
@@ -101,7 +99,7 @@ private fun LogConsole(
             text = logString.value,
             textAlign = TextAlign.Start,
             overflow = TextOverflow.Visible,
-            color = Color.Gray
+            color = if (logError.value) Color.Red else Color.Gray,
         )
         VerticalScrollbar(
             modifier = Modifier.align(Alignment.CenterVertically)
@@ -176,8 +174,6 @@ private fun ProgressIndicator(downloadProgress: State<Float>) {
 private fun Download(
     downloadHybridUrl: State<String>,
     viewModel: UpgradeHybridViewModel,
-    scope: CoroutineScope,
-    cachePath: State<String>,
     isDownloading: State<Boolean>,
     isClickable: State<Boolean>,
 ) {
@@ -191,7 +187,7 @@ private fun Download(
             hints = "Hybrid下载地址",
             url = downloadHybridUrl.value,
             onDownLoadClick = {
-                performClick(viewModel, downloadHybridUrl, scope, cachePath)
+                viewModel.onTriggerClick()
             },
             onUrlChanged = {
                 viewModel.onDownloadUrlChange(it)
@@ -202,32 +198,6 @@ private fun Download(
             },
             clickable = isClickable.value
         )
-    }
-}
-
-private fun performClick(
-    viewModel: UpgradeHybridViewModel,
-    downloadHybridUrl: State<String>,
-    scope: CoroutineScope,
-    cachePath: State<String>
-) {
-    println("click trigger")
-    val versionNumber = viewModel.validateDownloadUrl(url = downloadHybridUrl.value)
-    if (versionNumber == null) {
-        println("not match versionNumber !!")
-        return
-    }
-    viewModel.onTriggerClick()
-    scope.launch {
-        //1. step on download resource zip
-        val file = withContext(Dispatchers.IO) {
-            FileUtils.mkDir(cachePath.value + "/$versionNumber")
-            File(cachePath.value + "/$versionNumber/index.zip")
-        }
-        viewModel.client.downloadFile(downloadHybridUrl.value, file).collect {
-            viewModel.onDownloadStateChange(it)
-        }
-
     }
 }
 

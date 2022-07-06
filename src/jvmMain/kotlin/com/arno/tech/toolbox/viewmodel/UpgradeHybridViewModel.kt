@@ -1,12 +1,17 @@
 package com.arno.tech.toolbox.viewmodel
 
+import com.arno.tech.toolbox.model.UpgradeResult
 import com.arno.tech.toolbox.util.DownloadResult
+import com.arno.tech.toolbox.util.FileUtils
+import com.arno.tech.toolbox.util.downloadFile
+import com.arno.tech.toolbox.util.unzipFile
 import io.ktor.client.*
 import io.ktor.client.engine.java.*
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * 更新Hb模板 viewmodel
@@ -18,6 +23,8 @@ class UpgradeHybridViewModel : ViewController() {
         //http://mjs.sinaimg.cn//wap/project/snal_v2/7.3.63/index/index.php
         //http://mjs.sinaimg.cn//wap/project/snal_v2/7.3.63-test/index/index.php
         private val HYBRID_PATTERN_REG = Regex("(\\d.\\d.\\d+)(-\\w+)?(?=/)")
+        private val PROJECT_ASSERT_SUFFIX = "/SinaNews/src/main/assets/article_v2"
+        private val COMMIT_DEFAULT_TEMPLATE = "升级正文 Hb 模板 "
     }
 
     private val _client = HttpClient(Java)
@@ -49,9 +56,10 @@ class UpgradeHybridViewModel : ViewController() {
     private val _logString = MutableStateFlow("")
     val logString: Flow<String>
         get() = _logString.asStateFlow()
+    private val _logError = MutableStateFlow(false)
+    val logError: Flow<Boolean>
+        get() = _logError.asStateFlow()
 
-
-    // TODO: 2022/7/6  待完善后续
     private val _isAutoUnZip = MutableStateFlow(false)
     val isAutoUnZip: Flow<Boolean>
         get() = _isAutoUnZip.asStateFlow()
@@ -121,6 +129,87 @@ class UpgradeHybridViewModel : ViewController() {
         changeClickable(false)
         updateDownloadState(true)
         clearLogString()
+        val versionNumber = validateDownloadUrl(url = _downloadHybridUrl.value)
+        if (versionNumber == null) {
+            appendLogString("not match versionNumber !!", true)
+            return
+        }
+        ioScope.launch {
+            //1. step on download resource zip
+            val file = withContext(Dispatchers.IO) {
+                FileUtils.mkDir(_cachePath.value + "/$versionNumber")
+                File(_cachePath.value + "/$versionNumber/index.zip")
+            }
+//            val totalStep = getTotalStep()
+            client.downloadFile(_downloadHybridUrl.value, file)
+                .onStart {
+                    appendLogString("开始下载: >>>>>>>>>>>>>>>>>>")
+                    println("开始下载: >>>>>>>>>>>>>>>>>>")
+                }
+                // download resource
+                .onEach {
+                    onDownloadStateChange(it)
+                }
+                //判定加过滤step 2 条件
+                .filter { it is DownloadResult.Success && _isAutoUnZip.value && _cachePath.value.isNotEmpty() }
+                .map {
+                    appendLogString("开始解压缩: >>>>>>>>>>>>>>>>>>")
+                    println("开始解压缩: >>>>>>>>>>>>>>>>>>")
+                    withContext(Dispatchers.IO) {
+                        file.unzipFile(_cachePath.value)
+                    }
+                }
+                //判定加过滤step 3 条件
+                .filter { _isAutoReplace.value && it }
+                .map {
+                    appendLogString("开始替换文件: >>>>>>>>>>>>>>>>>>")
+                    replaceFile(file, _rootProjectPath.value + PROJECT_ASSERT_SUFFIX)
+                }
+                //判定加过滤step 4 条件
+                .filter { _isAutoCommit.value }
+                .map {
+                    appendLogString("开始提交: >>>>>>>>>>>>>>>>>>")
+                    println("开始提交: >>>>>>>>>>>>>>>>>>")
+                    doGitCommit(COMMIT_DEFAULT_TEMPLATE + versionNumber, _rootProjectPath.value)
+                }.onCompletion {
+                    it?.let {
+                        appendLogString("发生异常终止: <<<<<<<<<<< $it", true)
+                        println("发生异常终止: <<<<<<<<<<< $it")
+                    }
+                    appendLogString("操作结束: >>>>>>>>>>>>>>>>>>")
+                    println("提交结束: >>>>>>>>>>>>>>>>>>")
+                }
+                .collect()
+
+        }
+    }
+
+    private suspend fun replaceFile(file: File, dstDir: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            FileUtils.moveFilesTo(file, File(dstDir))
+        }
+    }
+
+    private suspend fun doGitCommit(commitMessage: String, gitRoot: String): UpgradeResult {
+        // TODO: 2022/7/6
+        return withContext(Dispatchers.IO) {
+            UpgradeResult.Finish
+        }
+    }
+
+    private fun getTotalStep(): Int {
+        var totalStep = 1
+
+        _isAutoUnZip.value.let {
+            totalStep += 1
+        }
+        _isAutoReplace.value.let {
+            totalStep += 1
+        }
+        _isAutoCommit.value.let {
+            totalStep += 1
+        }
+        return totalStep
     }
 
     fun onAutoUnZipClick(isOpen: Boolean) {
@@ -152,7 +241,6 @@ class UpgradeHybridViewModel : ViewController() {
             _isAutoReplace.update { true }
         }
 
-
         appendLogString("自动提交 ${if (isOpen) "打开" else "关闭"}")
     }
 
@@ -163,7 +251,7 @@ class UpgradeHybridViewModel : ViewController() {
      *
      * @param it
      */
-    fun onDownloadStateChange(it: DownloadResult) {
+    private fun onDownloadStateChange(it: DownloadResult): Flow<DownloadResult> {
         when (it) {
             is DownloadResult.Success -> {
                 changeClickable(true)
@@ -173,21 +261,23 @@ class UpgradeHybridViewModel : ViewController() {
             is DownloadResult.Error -> {
                 changeClickable(true)
                 updateDownloadState(false)
-                appendLogString("download error!!! $it")
+                appendLogString("download error!!! $it", true)
             }
             is DownloadResult.Progress -> {
                 updateDownloadProgress(it.progress)
             }
         }
+        return flowOf(it)
     }
     //endregion
 
-
-    private fun appendLogString(string: String?) {
+    private fun appendLogString(string: String?, isError: Boolean = false) {
         _logString.update { _logString.value + "\n" + string }
+        _logError.update { isError }
     }
 
     private fun clearLogString() {
         _logString.update { "" }
+        _logError.update { false }
     }
 }

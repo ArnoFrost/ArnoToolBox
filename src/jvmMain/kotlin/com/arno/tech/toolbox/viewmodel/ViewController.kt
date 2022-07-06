@@ -17,7 +17,9 @@ import kotlinx.coroutines.cancel
  */
 open class ViewController : Cleanable {
     protected val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    protected val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     override fun clean() {
         coroutineScope.cancel()
+        ioScope.cancel()
     }
 }
