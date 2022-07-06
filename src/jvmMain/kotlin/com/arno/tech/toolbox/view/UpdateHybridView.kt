@@ -1,20 +1,18 @@
 package com.arno.tech.toolbox.view
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import com.arno.tech.toolbox.util.DownloadResult
 import com.arno.tech.toolbox.util.FileUtils
 import com.arno.tech.toolbox.util.downloadFile
 import com.arno.tech.toolbox.viewmodel.UpgradeHybridViewModel
@@ -56,47 +54,44 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
     val logString = viewModel.logString.collectAsState("")
     val logScrollState = rememberScrollState(0)
 
-    // TODO: 2022/7/6  待完善后续
-    val isAutoUnZip = remember { mutableStateOf(false) }
-    val isAutoReplace = remember { mutableStateOf(false) }
-    val isAutoCommit = remember { mutableStateOf(false) }
-    Column {
+    val isAutoUnZip = viewModel.isAutoUnZip.collectAsState(false)
+    val isAutoReplace = viewModel.isAutoReplace.collectAsState(false)
+    val isAutoCommit = viewModel.isAutoCommit.collectAsState(false)
+    val isInAutoTask = viewModel.isInAutoTask.collectAsState(false)
+    Column(modifier = Modifier.padding(10.dp)) {
+        // 工程目录
         RootPathSelector(rootProjectPath, viewModel)
-        Spacer(modifier = Modifier.width(10.dp))
-
+        Spacer(modifier = Modifier.size(10.dp))
+        // 缓存路径
         CacheSelector(cachePath, viewModel)
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.size(10.dp))
 
+        //下载地址
         Download(downloadHybridUrl, viewModel, scope, cachePath, isDownloading, isClickable)
-        Spacer(modifier = Modifier.width(10.dp))
-        //todo 尺寸控制不住?
-        if (isDownloading.value) {
-            DownloadIndicator(downloadProgress)
+        Spacer(modifier = Modifier.size(10.dp))
+        Row(horizontalArrangement = Arrangement.SpaceAround) {
+            //自动任务选择
+            AutoTaskSelector(isAutoUnZip, viewModel, isAutoReplace, isAutoCommit)
+            //下载进度指示器
+            if (isDownloading.value || isInAutoTask.value) {
+                ProgressIndicator(downloadProgress)
+            }
         }
-        //region Auto Task Checkbox
-        Text("下载完成后:")
-        Row(horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        Divider(color = Color.Gray, modifier = Modifier.height(1.dp).fillMaxWidth())
+        Spacer(modifier = Modifier.size(10.dp))
+        //日志输出
+        LogConsole(logScrollState, logString, scope)
+    }
 
-            Checkbox(checked = isAutoUnZip.value, onCheckedChange = {
-                isAutoUnZip.value = it
-                viewModel.appendLogString("isAutoUnZip $it")
-            })
-            Text("自动解压缩:")
+}
 
-            Checkbox(checked = isAutoReplace.value, onCheckedChange = {
-                isAutoReplace.value = it
-                viewModel.appendLogString("isAutoReplace $it")
-            })
-            Text("自动替换资源:")
-
-            Checkbox(checked = isAutoCommit.value, onCheckedChange = {
-                isAutoCommit.value = it
-                viewModel.appendLogString("isAutoCommit $it")
-            })
-            Text("自动生成提交:")
-        }
-        //endregion
-        //region log console
+@Composable
+private fun LogConsole(
+    logScrollState: ScrollState,
+    logString: State<String>,
+    scope: CoroutineScope
+) {
+    Row {
         Text(
             modifier = Modifier
                 .fillMaxWidth()
@@ -106,19 +101,53 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
             text = logString.value,
             textAlign = TextAlign.Start,
             overflow = TextOverflow.Visible,
+            color = Color.Gray
+        )
+        VerticalScrollbar(
+            modifier = Modifier.align(Alignment.CenterVertically)
+                .fillMaxHeight(),
+            adapter = rememberScrollbarAdapter(logScrollState)
         )
         // 自动滚动到队尾
         scope.launch {
             logScrollState.scrollTo(logScrollState.maxValue)
         }
-        //endregion
-
     }
-
 }
 
 @Composable
-private fun DownloadIndicator(downloadProgress: State<Float>) {
+private fun AutoTaskSelector(
+    isAutoUnZip: State<Boolean>,
+    viewModel: UpgradeHybridViewModel,
+    isAutoReplace: State<Boolean>,
+    isAutoCommit: State<Boolean>
+) {
+    Column {
+        Text("下载完成后:")
+        Row(horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Text("自动解压缩:")
+            Checkbox(checked = isAutoUnZip.value, onCheckedChange = {
+                viewModel.onAutoUnZipClick(it)
+            })
+        }
+        Row(horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Text("自动替换资源:")
+            Checkbox(checked = isAutoReplace.value, onCheckedChange = {
+                viewModel.onAutoReplaceClick(it)
+            })
+
+        }
+        Row(horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            Text("自动生成提交:")
+            Checkbox(checked = isAutoCommit.value, onCheckedChange = {
+                viewModel.onAutoCommitClick(it)
+            })
+        }
+    }
+}
+
+@Composable
+private fun ProgressIndicator(downloadProgress: State<Float>) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -135,6 +164,7 @@ private fun DownloadIndicator(downloadProgress: State<Float>) {
             )
         }
         Spacer(Modifier.width(10.dp))
+        //todo 尺寸控制不住?
 //        CircularProgressIndicator(
 //            modifier = Modifier.weight(1F).size(10.dp),
 //            strokeWidth = 6.dp
@@ -152,7 +182,7 @@ private fun Download(
     isClickable: State<Boolean>,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(10.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -161,37 +191,7 @@ private fun Download(
             hints = "Hybrid下载地址",
             url = downloadHybridUrl.value,
             onDownLoadClick = {
-                println("click download")
-                val versionNumber = viewModel.validateDownloadUrl(url = downloadHybridUrl.value)
-                if (versionNumber == null) {
-                    println("not match versionNumber !!")
-                    return@DownloadResource
-                }
-                viewModel.onDownloadClick()
-                scope.launch {
-                    val file = withContext(Dispatchers.IO) {
-                        FileUtils.mkDir(cachePath.value + "/$versionNumber")
-                        File(cachePath.value + "/$versionNumber/index.zip")
-                    }
-                    viewModel.client.downloadFile(downloadHybridUrl.value, file).collect {
-                        when (it) {
-                            is DownloadResult.Success -> {
-                                viewModel.changeClickable(true)
-                                viewModel.updateDownloadState(false)
-                                println("download success .")
-                            }
-                            is DownloadResult.Error -> {
-                                viewModel.changeClickable(true)
-                                viewModel.updateDownloadState(false)
-                                println("download error!!! $it")
-                            }
-                            is DownloadResult.Progress -> {
-                                viewModel.updateDownloadProgress(it.progress)
-                            }
-                        }
-                    }
-                }
-
+                performClick(viewModel, downloadHybridUrl, scope, cachePath)
             },
             onUrlChanged = {
                 viewModel.onDownloadUrlChange(it)
@@ -205,13 +205,39 @@ private fun Download(
     }
 }
 
+private fun performClick(
+    viewModel: UpgradeHybridViewModel,
+    downloadHybridUrl: State<String>,
+    scope: CoroutineScope,
+    cachePath: State<String>
+) {
+    println("click trigger")
+    val versionNumber = viewModel.validateDownloadUrl(url = downloadHybridUrl.value)
+    if (versionNumber == null) {
+        println("not match versionNumber !!")
+        return
+    }
+    viewModel.onTriggerClick()
+    scope.launch {
+        //1. step on download resource zip
+        val file = withContext(Dispatchers.IO) {
+            FileUtils.mkDir(cachePath.value + "/$versionNumber")
+            File(cachePath.value + "/$versionNumber/index.zip")
+        }
+        viewModel.client.downloadFile(downloadHybridUrl.value, file).collect {
+            viewModel.onDownloadStateChange(it)
+        }
+
+    }
+}
+
 @Composable
 private fun CacheSelector(
     cachePath: State<String>,
     viewModel: UpgradeHybridViewModel
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(10.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -229,11 +255,10 @@ private fun RootPathSelector(
     viewModel: UpgradeHybridViewModel
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(10.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Spacer(modifier = Modifier.width(10.dp))
         FileChooser(
             defaultFilePath = rootProjectPath.value,
             onFileChanged = { viewModel.onProjectRootChange(it) },
@@ -258,7 +283,7 @@ fun DownloadResource(
         )
         Spacer(modifier = Modifier.width(10.dp))
         Button(enabled = clickable, onClick = onDownLoadClick) {
-            Text("下载")
+            Text("一键替换")
         }
     }
 }
@@ -271,14 +296,6 @@ fun FileChooser(
     readOnly: Boolean = false
 ) {
     Row {
-        TextField(
-            value = defaultFilePath ?: "",
-            readOnly = readOnly,
-            onValueChange = onFileChanged,
-            label = { Text(hints ?: "") }
-        )
-
-        Spacer(modifier = Modifier.width(10.dp))
         Button(
             onClick = {
                 onFileChanged(fileChooserDialog(hints))
@@ -286,6 +303,15 @@ fun FileChooser(
         ) {
             Text("...")
         }
+        Spacer(modifier = Modifier.width(10.dp))
+        TextField(
+            value = defaultFilePath ?: "",
+            readOnly = readOnly,
+            onValueChange = onFileChanged,
+            label = { Text(hints ?: "") }
+        )
+
+
     }
 
 }
