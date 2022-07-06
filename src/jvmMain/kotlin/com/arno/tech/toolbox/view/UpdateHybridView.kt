@@ -2,32 +2,49 @@ package com.arno.tech.toolbox.view
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
-import androidx.compose.material.LinearProgressIndicator
-import androidx.compose.material.Text
-import androidx.compose.material.TextField
+import androidx.compose.material.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
+import com.arno.tech.toolbox.viewmodel.UpgradeHybridViewModel
 import kotlinx.coroutines.*
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileSystemView
 import kotlin.random.Random
 
+fun main() = application {
+    Window(onCloseRequest = ::exitApplication) {
+        UpgradeHybridApp()
+    }
+}
+
+@Composable
+@Preview
+fun UpgradeHybridApp() {
+    val viewModel = UpgradeHybridViewModel()
+    MaterialTheme {
+        UpgradeHybridScreen(viewModel)
+    }
+}
+
 @OptIn(DelicateCoroutinesApi::class)
 @Preview
 @Composable
-fun UpgradeHybridScreen() {
-    val rootProjectPath = remember { mutableStateOf("") }
-    val downloadHybridUrl = remember { mutableStateOf("") }
-    val cachePath = remember { mutableStateOf("") }
-    val isDownloading = remember { mutableStateOf(false) }
-    val isClickable = remember { mutableStateOf(false) }
-    val downloadProgress = remember { mutableStateOf(0F) }
+fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
+//    val rootProjectPath = remember { mutableStateOf("") }
+    val rootProjectPath = viewModel.rootProjectPath.collectAsState("")
+    val downloadHybridUrl = viewModel.downloadHybridUrl.collectAsState("")
+    val cachePath = viewModel.cachePath.collectAsState("")
+    val isDownloading = viewModel.isDownloading.collectAsState(false)
+    val isClickable = viewModel.isClickable.collectAsState(false)
+    val downloadProgress = viewModel.downloadProgress.collectAsState(0F)
     Column {
         Row(
             modifier = Modifier.fillMaxWidth().padding(10.dp),
@@ -40,7 +57,7 @@ fun UpgradeHybridScreen() {
             Spacer(modifier = Modifier.width(10.dp))
             FileChooser(
                 defaultFilePath = rootProjectPath.value,
-                onFileChanged = { rootProjectPath.value = it },
+                onFileChanged = { viewModel.onProjectRootChange(it) },
             )
         }
         Spacer(modifier = Modifier.width(10.dp))
@@ -56,7 +73,7 @@ fun UpgradeHybridScreen() {
             Spacer(modifier = Modifier.width(10.dp))
             FileChooser(
                 defaultFilePath = cachePath.value,
-                onFileChanged = { cachePath.value = it },
+                onFileChanged = { viewModel.onCachePathChange(it) },
             )
         }
         Spacer(modifier = Modifier.size(10.dp))
@@ -74,10 +91,11 @@ fun UpgradeHybridScreen() {
                 url = downloadHybridUrl.value,
                 onDownLoadClick = {
                     println("click download")
-                    isClickable.value = false
+                    viewModel.changeClickable(false)
                     // TODO: 2022/7/5 下载流程待实现
                     suspend fun fakeDownload() {
-                        downloadProgress.value = 0F
+                        var progress = 0F
+                        viewModel.updateDownloadProgress(progress)
                         while (downloadProgress.value < 1) {
                             delay(300L)
                             var tempAddValue = Random.nextFloat()
@@ -85,7 +103,8 @@ fun UpgradeHybridScreen() {
                             if (downloadProgress.value + tempAddValue > 1) {
                                 tempAddValue = 1 - downloadProgress.value
                             }
-                            downloadProgress.value += tempAddValue
+                            progress += tempAddValue
+                            viewModel.updateDownloadProgress(progress)
                         }
                     }
                     GlobalScope.launch(Dispatchers.Default) {
@@ -94,10 +113,10 @@ fun UpgradeHybridScreen() {
 
                 },
                 onUrlChanged = {
-                    downloadHybridUrl.value = it
+                    viewModel.onDownloadUrlChange(it)
                     //当没开始下载时候可以开始执行下载
                     if (!isDownloading.value) {
-                        isClickable.value = true
+                        viewModel.changeClickable(true)
                     }
                 },
                 clickable = isClickable.value

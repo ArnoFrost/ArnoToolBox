@@ -1,6 +1,5 @@
 import org.jetbrains.compose.compose
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("multiplatform")
@@ -29,6 +28,7 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.6.3")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3")
+                implementation("io.ktor:ktor-client-core:2.0.3")
             }
         }
         val jvmTest by getting
