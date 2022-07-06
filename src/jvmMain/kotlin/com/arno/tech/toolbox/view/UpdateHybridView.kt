@@ -96,10 +96,16 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
                 url = downloadHybridUrl.value,
                 onDownLoadClick = {
                     println("click download")
+                    val versionNumber = viewModel.validateDownloadUrl(url = downloadHybridUrl.value)
+                    if (versionNumber == null) {
+                        println("not match versionNumber !!")
+                        return@DownloadResource
+                    }
                     viewModel.changeClickable(false)
                     scope.launch {
                         val file = withContext(Dispatchers.IO) {
-                            File(cachePath.value+"/123")
+                            // TODO: 2022/7/6 no such file
+                            File(cachePath.value + "/$versionNumber/index.zip")
                         }
                         viewModel.client.downloadFile(downloadHybridUrl.value, file).collect {
                             when (it) {

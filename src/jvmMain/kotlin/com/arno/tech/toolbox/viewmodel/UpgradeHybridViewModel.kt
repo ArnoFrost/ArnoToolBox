@@ -1,13 +1,28 @@
 package com.arno.tech.toolbox.viewmodel
 
 import io.ktor.client.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import kotlinx.coroutines.flow.*
 import io.ktor.client.engine.java.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
-
+/**
+ * 更新Hb模板 viewmodel
+ *
+ */
 class UpgradeHybridViewModel : ViewController() {
+    companion object {
+        // hybrid 模板下载规则匹配
+        //http://mjs.sinaimg.cn//wap/project/snal_v2/7.3.63/index/index.php
+        //http://mjs.sinaimg.cn//wap/project/snal_v2/7.3.63-test/index/index.php
+        private val HYBRID_PATTERN_REG = Regex("(\\d.\\d.\\d+)(-\\w+)?(?=/)")
+    }
+
+    private val _client = HttpClient(Java)
+    val client: HttpClient
+        get() = _client
+
     private val _rootProjectPath = MutableStateFlow("")
     val rootProjectPath: Flow<String>
         get() = _rootProjectPath.asStateFlow()
@@ -29,10 +44,6 @@ class UpgradeHybridViewModel : ViewController() {
     val downloadProgress: Flow<Float>
         get() = _downloadProgress.asStateFlow()
 
-
-    private val _client = HttpClient(Java)
-    val client: HttpClient
-        get() = _client
 
     fun onProjectRootChange(path: String?) {
         _rootProjectPath.update { path ?: "" }
@@ -56,5 +67,16 @@ class UpgradeHybridViewModel : ViewController() {
 
     fun changeClickable(isClickable: Boolean) {
         _isClickable.update { isClickable }
+    }
+
+    fun validateDownloadUrl(url: String?): String? {
+        // 必须为php或zip结尾
+        val isEndWithSpecific = url?.endsWith("php") == true || url?.endsWith("zip") == true
+        if (url.isNullOrEmpty() || !isEndWithSpecific) {
+            return null
+        }
+        val versionNumber = HYBRID_PATTERN_REG.find(url)
+        println("versionNumber = ${versionNumber?.value}")
+        return versionNumber?.value
     }
 }
