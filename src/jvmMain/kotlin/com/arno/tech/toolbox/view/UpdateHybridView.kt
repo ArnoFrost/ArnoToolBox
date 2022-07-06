@@ -1,12 +1,16 @@
 package com.arno.tech.toolbox.view
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.ZeroCornerSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -50,6 +54,7 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
     val isClickable = viewModel.isClickable.collectAsState(false)
     val downloadProgress = viewModel.downloadProgress.collectAsState(0F)
     val logString = viewModel.logString.collectAsState("")
+    val logScrollState = rememberScrollState(0)
 
     // TODO: 2022/7/6  待完善后续
     val isAutoUnZip = remember { mutableStateOf(false) }
@@ -92,14 +97,20 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
         }
         //endregion
         //region log console
-        TextField(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(10.dp),
-            value = logString.value,
-            enabled = false,
-            readOnly = true,
-            onValueChange = {},
-            shape = MaterialTheme.shapes.small.copy(bottomEnd = ZeroCornerSize, bottomStart = ZeroCornerSize),
+        Text(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(10.dp)
+                .verticalScroll(logScrollState),
+            text = logString.value,
+            textAlign = TextAlign.Start,
+            overflow = TextOverflow.Visible,
         )
+        // 自动滚动到队尾
+        scope.launch {
+            logScrollState.scrollTo(logScrollState.maxValue)
+        }
         //endregion
 
     }
