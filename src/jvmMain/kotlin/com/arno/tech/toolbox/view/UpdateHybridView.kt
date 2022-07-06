@@ -5,19 +5,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.arno.tech.toolbox.util.DownloadResult
+import com.arno.tech.toolbox.util.downloadFile
 import com.arno.tech.toolbox.viewmodel.UpgradeHybridViewModel
-import kotlinx.coroutines.*
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileSystemView
-import kotlin.random.Random
 
 fun main() = application {
     Window(onCloseRequest = ::exitApplication) {
@@ -29,6 +32,7 @@ fun main() = application {
 @Preview
 fun UpgradeHybridApp() {
     val viewModel = UpgradeHybridViewModel()
+
     MaterialTheme {
         UpgradeHybridScreen(viewModel)
     }
@@ -38,7 +42,8 @@ fun UpgradeHybridApp() {
 @Preview
 @Composable
 fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
-//    val rootProjectPath = remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
     val rootProjectPath = viewModel.rootProjectPath.collectAsState("")
     val downloadHybridUrl = viewModel.downloadHybridUrl.collectAsState("")
     val cachePath = viewModel.cachePath.collectAsState("")
@@ -92,23 +97,25 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
                 onDownLoadClick = {
                     println("click download")
                     viewModel.changeClickable(false)
-                    // TODO: 2022/7/5 下载流程待实现
-                    suspend fun fakeDownload() {
-                        var progress = 0F
-                        viewModel.updateDownloadProgress(progress)
-                        while (downloadProgress.value < 1) {
-                            delay(300L)
-                            var tempAddValue = Random.nextFloat()
-                            // 最多1
-                            if (downloadProgress.value + tempAddValue > 1) {
-                                tempAddValue = 1 - downloadProgress.value
-                            }
-                            progress += tempAddValue
-                            viewModel.updateDownloadProgress(progress)
+                    scope.launch {
+                        val file = withContext(Dispatchers.IO) {
+                            File(cachePath.value+"/123")
                         }
-                    }
-                    GlobalScope.launch(Dispatchers.Default) {
-                        fakeDownload()
+                        viewModel.client.downloadFile(downloadHybridUrl.value, file).collect {
+                            when (it) {
+                                is DownloadResult.Success -> {
+                                    viewModel.changeClickable(true)
+                                    viewModel.updateDownloadState(false)
+                                }
+                                is DownloadResult.Error -> {
+                                    viewModel.changeClickable(true)
+                                    viewModel.updateDownloadState(false)
+                                }
+                                is DownloadResult.Progress -> {
+                                    viewModel.updateDownloadProgress(it.progress.toFloat())
+                                }
+                            }
+                        }
                     }
 
                 },
@@ -123,7 +130,7 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
             )
         }
         Spacer(modifier = Modifier.width(10.dp))
-        Text(modifier = Modifier.align(Alignment.CenterHorizontally), text = "下载进度: ${downloadProgress.value * 100} % ")
+        Text(modifier = Modifier.align(Alignment.CenterHorizontally), text = "下载进度: ${downloadProgress.value} % ")
         LinearProgressIndicator(
             modifier = Modifier.align(Alignment.CenterHorizontally),
             progress = downloadProgress.value

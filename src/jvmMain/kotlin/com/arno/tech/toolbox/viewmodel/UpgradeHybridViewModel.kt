@@ -30,11 +30,9 @@ class UpgradeHybridViewModel : ViewController() {
         get() = _downloadProgress.asStateFlow()
 
 
-    private val client = HttpClient(Java)
-    suspend fun getHtml(): String {
-        val response = client.get("https://ktor.io/docs")
-        return response.bodyAsText()
-    }
+    private val _client = HttpClient(Java)
+    val client: HttpClient
+        get() = _client
 
     fun onProjectRootChange(path: String?) {
         _rootProjectPath.update { path ?: "" }
