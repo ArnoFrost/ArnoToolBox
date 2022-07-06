@@ -113,13 +113,15 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
                                 is DownloadResult.Success -> {
                                     viewModel.changeClickable(true)
                                     viewModel.updateDownloadState(false)
+                                    println("download success .")
                                 }
                                 is DownloadResult.Error -> {
                                     viewModel.changeClickable(true)
                                     viewModel.updateDownloadState(false)
+                                    println("download error!!! $it")
                                 }
                                 is DownloadResult.Progress -> {
-                                    viewModel.updateDownloadProgress(it.progress.toFloat())
+                                    viewModel.updateDownloadProgress(it.progress)
                                 }
                             }
                         }
@@ -137,7 +139,7 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
             )
         }
         Spacer(modifier = Modifier.width(10.dp))
-        Text(modifier = Modifier.align(Alignment.CenterHorizontally), text = "下载进度: ${downloadProgress.value} % ")
+        Text(modifier = Modifier.align(Alignment.CenterHorizontally), text = "下载进度: ${downloadProgress.value * 100} % ")
         LinearProgressIndicator(
             modifier = Modifier.align(Alignment.CenterHorizontally),
             progress = downloadProgress.value

@@ -15,7 +15,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.roundToInt
+import java.util.*
 
 sealed class DownloadResult {
 
@@ -23,7 +23,7 @@ sealed class DownloadResult {
 
     data class Error(val message: String, val cause: Exception? = null) : DownloadResult()
 
-    data class Progress(val progress: Int) : DownloadResult()
+    data class Progress(val progress: Float) : DownloadResult()
 }
 
 //传入url字符串进行下载
@@ -47,25 +47,34 @@ suspend fun HttpClient.downloadFile(
             prepareGet(url).execute { httpResponse ->
                 val channel: ByteReadChannel = httpResponse.body()
                 val total = httpResponse.contentLength() ?: 0
+                val isSupportProgress = total > 0
+                var fakeProgress = 0F
+                val fakeMaxProgressValue = 0.8F
 
                 while (!channel.isClosedForRead) {
                     val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
                     while (!packet.isEmpty) {
                         val bytes = packet.readBytes()
                         tempFile.appendBytes(bytes)
-                        println("Received ${tempFile.length()} bytes from $total")
-                        if (total > 0) {
-                            val progress = (tempFile.length() * 100F / total).roundToInt()
+                        if (isSupportProgress) {
+                            println("Received ${tempFile.length()} bytes from $total")
+                            val progress = (tempFile.length() / total).toFloat()
                             emit(DownloadResult.Progress(progress))
                         } else {
-                            emit(DownloadResult.Error("total is zero!!"))
-                            channel.cancel()
-                            break
+                            println("Received ${tempFile.length()} bytes")
+                            // 如果没有做一个假的
+                            fakeProgress += Random().nextFloat()
+                            //约束最大显示80%
+                            fakeProgress = fakeMaxProgressValue.coerceAtMost(fakeProgress)
+                            emit(DownloadResult.Progress(fakeProgress))
                         }
                     }
                 }
                 if (httpResponse.status.isSuccess()) {
                     println("A file saved to ${tempFile.path}")
+                    if (!isSupportProgress) {
+                        emit(DownloadResult.Progress(1F))
+                    }
                     emit(DownloadResult.Success)
                 } else {
                     emit(DownloadResult.Error("File not downloaded"))
