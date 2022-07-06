@@ -47,14 +47,17 @@ class UpgradeHybridViewModel : ViewController() {
 
     fun onProjectRootChange(path: String?) {
         _rootProjectPath.update { path ?: "" }
+        isDownloadClickable(rootPath = _rootProjectPath.value, _cachePath.value, _downloadHybridUrl.value)
     }
 
     fun onDownloadUrlChange(url: String?) {
         _downloadHybridUrl.update { url ?: "" }
+        isDownloadClickable(rootPath = _rootProjectPath.value, _cachePath.value, _downloadHybridUrl.value)
     }
 
     fun onCachePathChange(path: String?) {
         _cachePath.update { path ?: "" }
+        isDownloadClickable(rootPath = _rootProjectPath.value, _cachePath.value, _downloadHybridUrl.value)
     }
 
     fun updateDownloadState(isDownloading: Boolean) {
@@ -78,5 +81,18 @@ class UpgradeHybridViewModel : ViewController() {
         val versionNumber = HYBRID_PATTERN_REG.find(url)
         println("versionNumber = ${versionNumber?.value}")
         return versionNumber?.value
+    }
+
+    /**
+     * Is ready to do download task
+     *
+     * @param rootPath
+     * @param cache
+     * @param url
+     * @return is ready
+     */
+    fun isDownloadClickable(rootPath: String?, cache: String?, url: String?): Boolean {
+        return !_isDownloading.value && !rootPath.isNullOrBlank() && !cache.isNullOrEmpty() && validateDownloadUrl(url) != null
+
     }
 }

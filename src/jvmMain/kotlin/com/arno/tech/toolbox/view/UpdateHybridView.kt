@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.arno.tech.toolbox.util.DownloadResult
+import com.arno.tech.toolbox.util.FileUtils
 import com.arno.tech.toolbox.util.downloadFile
 import com.arno.tech.toolbox.viewmodel.UpgradeHybridViewModel
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -102,9 +103,9 @@ fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
                         return@DownloadResource
                     }
                     viewModel.changeClickable(false)
-                    scope.launch {
+                    val downloadJob = scope.launch {
                         val file = withContext(Dispatchers.IO) {
-                            // TODO: 2022/7/6 no such file
+                            FileUtils.mkDir(cachePath.value + "/$versionNumber")
                             File(cachePath.value + "/$versionNumber/index.zip")
                         }
                         viewModel.client.downloadFile(downloadHybridUrl.value, file).collect {
