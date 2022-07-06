@@ -2,10 +2,7 @@ package com.arno.tech.toolbox.viewmodel
 
 import io.ktor.client.*
 import io.ktor.client.engine.java.*
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 
 /**
  * 更新Hb模板 viewmodel
@@ -44,6 +41,9 @@ class UpgradeHybridViewModel : ViewController() {
     val downloadProgress: Flow<Float>
         get() = _downloadProgress.asStateFlow()
 
+    private val _logString = MutableStateFlow("")
+    val logString: Flow<String>
+        get() = _logString.asStateFlow()
 
     fun onProjectRootChange(path: String?) {
         _rootProjectPath.update { path ?: "" }
@@ -80,6 +80,7 @@ class UpgradeHybridViewModel : ViewController() {
         }
         val versionNumber = HYBRID_PATTERN_REG.find(url)
         println("versionNumber = ${versionNumber?.value}")
+        appendLogString("versionNumber = ${versionNumber?.value}")
         return versionNumber?.value
     }
 
@@ -94,5 +95,19 @@ class UpgradeHybridViewModel : ViewController() {
     fun isDownloadClickable(rootPath: String?, cache: String?, url: String?): Boolean {
         return !_isDownloading.value && !rootPath.isNullOrBlank() && !cache.isNullOrEmpty() && validateDownloadUrl(url) != null
 
+    }
+
+    fun appendLogString(string: String?) {
+        _logString.update { _logString.value + "\n" + string }
+    }
+
+    fun clearLogString() {
+        _logString.update { "" }
+    }
+
+    fun onDownloadClick() {
+        changeClickable(false)
+        updateDownloadState(true)
+        clearLogString()
     }
 }
