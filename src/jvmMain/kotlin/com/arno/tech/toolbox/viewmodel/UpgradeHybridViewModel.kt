@@ -4,6 +4,7 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.flow.*
+import io.ktor.client.engine.java.*
 
 
 class UpgradeHybridViewModel : ViewController() {
@@ -29,7 +30,7 @@ class UpgradeHybridViewModel : ViewController() {
         get() = _downloadProgress.asStateFlow()
 
 
-    private val client = HttpClient()
+    private val client = HttpClient(Java)
     suspend fun getHtml(): String {
         val response = client.get("https://ktor.io/docs")
         return response.bodyAsText()

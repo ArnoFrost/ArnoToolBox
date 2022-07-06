@@ -23,12 +23,15 @@ kotlin {
         withJava()
     }
     sourceSets {
+        val ktorVersion = "2.0.3"
         val jvmMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.6.3")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3")
-                implementation("io.ktor:ktor-client-core:2.0.3")
+                implementation("io.ktor:ktor-client-core:$ktorVersion")
+                implementation("io.ktor:ktor-client-java:$ktorVersion")
+
             }
         }
         val jvmTest by getting
