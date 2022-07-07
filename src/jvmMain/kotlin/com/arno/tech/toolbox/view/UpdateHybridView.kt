@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import com.arno.tech.toolbox.viewmodel.UpgradeHybridViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +22,11 @@ import javax.swing.JFileChooser
 import javax.swing.filechooser.FileSystemView
 
 fun main() = application {
-    Window(onCloseRequest = ::exitApplication) {
+    Window(
+        onCloseRequest = ::exitApplication,
+        state = WindowState(width = 600.dp, height = 800.dp),
+        title = "Hybrid资源替换工具 version 1.0.0"
+    ) {
         UpgradeHybridApp()
     }
 }
