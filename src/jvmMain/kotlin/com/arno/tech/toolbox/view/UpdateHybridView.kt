@@ -30,7 +30,7 @@ fun main() = application {
 @Preview
 fun UpgradeHybridApp() {
     val viewModel = UpgradeHybridViewModel()
-
+    viewModel.restoreUserSettings()
     MaterialTheme {
         UpgradeHybridScreen(viewModel)
     }
@@ -40,7 +40,6 @@ fun UpgradeHybridApp() {
 @Composable
 fun UpgradeHybridScreen(viewModel: UpgradeHybridViewModel) {
     val scope = rememberCoroutineScope()
-
     val rootProjectPath = viewModel.rootProjectPath.collectAsState("")
     val downloadHybridUrl = viewModel.downloadHybridUrl.collectAsState("")
     val cachePath = viewModel.cachePath.collectAsState("")

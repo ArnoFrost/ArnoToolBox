@@ -17,6 +17,7 @@ fun main() = application {
 @Preview
 fun UpgradeHybridApp() {
     val viewModel = UpgradeHybridViewModel()
+    viewModel.restoreUserSettings()
     MaterialTheme {
         UpgradeHybridScreen(viewModel)
     }

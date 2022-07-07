@@ -1,17 +1,15 @@
 package com.arno.tech.toolbox.viewmodel
 
+import com.arno.tech.toolbox.model.config.UpgradeConfig
 import com.arno.tech.toolbox.model.UpgradeResult
 import com.arno.tech.toolbox.util.*
 import com.github.syari.kgit.KGit
-import com.github.syari.kgit.KGitCommand
 import io.ktor.client.*
 import io.ktor.client.engine.java.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.eclipse.jgit.api.AddCommand
 import java.io.File
 
 /**
@@ -36,14 +34,14 @@ class UpgradeHybridViewModel : ViewController() {
     val client: HttpClient
         get() = _client
 
-    private val _rootProjectPath = MutableStateFlow("/Users/xuxin14/Desktop/SinaProjects/SinaNewsArticle")
+    private val _rootProjectPath = MutableStateFlow("")
     val rootProjectPath: Flow<String>
         get() = _rootProjectPath.asStateFlow()
     private val _downloadHybridUrl =
-        MutableStateFlow("http://mjs.sinaimg.cn//wap/project/snal_v2/7.3.63/index/index.php")
+        MutableStateFlow("")
     val downloadHybridUrl: Flow<String>
         get() = _downloadHybridUrl.asStateFlow()
-    private val _cachePath = MutableStateFlow("/Users/xuxin14/Desktop/Temp")
+    private val _cachePath = MutableStateFlow("")
     val cachePath: Flow<String>
         get() = _cachePath.asStateFlow()
 
@@ -65,13 +63,13 @@ class UpgradeHybridViewModel : ViewController() {
     val logError: Flow<Boolean>
         get() = _logError.asStateFlow()
 
-    private val _isAutoUnZip = MutableStateFlow(false)
+    private val _isAutoUnZip = MutableStateFlow(true)
     val isAutoUnZip: Flow<Boolean>
         get() = _isAutoUnZip.asStateFlow()
-    private val _isAutoReplace = MutableStateFlow(false)
+    private val _isAutoReplace = MutableStateFlow(true)
     val isAutoReplace: Flow<Boolean>
         get() = _isAutoReplace.asStateFlow()
-    private val _isAutoCommit = MutableStateFlow(false)
+    private val _isAutoCommit = MutableStateFlow(true)
     val isAutoCommit: Flow<Boolean>
         get() = _isAutoCommit.asStateFlow()
     private val _isInAutoTask = MutableStateFlow(false)
@@ -187,7 +185,8 @@ class UpgradeHybridViewModel : ViewController() {
                     when (it) {
                         is UpgradeResult.Success -> {
                             appendLogString("完成操作: >>>>>>>>>>>>>>>>>>")
-                            println("UpgradeResult.Success")
+                            println("完成操作")
+                            saveUserSettings()
                         }
                         is UpgradeResult.Error -> {
                             appendLogString("发生异常终止: <<<<<<<<<<< $it", true)
@@ -310,4 +309,20 @@ class UpgradeHybridViewModel : ViewController() {
         _logString.update { "" }
         _logError.update { false }
     }
+
+    fun restoreUserSettings() {
+        val config = KVUtils.getValue<UpgradeConfig>("hybrid")
+        config?.let { cache ->
+            _rootProjectPath.update { cache.rootPath ?: "" }
+            _cachePath.update { cache.cachePath ?: "" }
+            _isAutoUnZip.update { cache.isAutoUnzip }
+            _isAutoReplace.update { cache.isAutoReplace }
+            _isAutoCommit.update { cache.isAutoCommit }
+        }
+    }
+
+    private fun saveUserSettings() {
+        KVUtils.saveValue("hybrid", UpgradeConfig(_rootProjectPath.value, _cachePath.value))
+    }
+
 }
