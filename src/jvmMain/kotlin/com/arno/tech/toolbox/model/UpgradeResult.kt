@@ -1,7 +1,7 @@
 package com.arno.tech.toolbox.model
 
 sealed class UpgradeResult {
-    object Finish : UpgradeResult()
+    object Success : UpgradeResult()
 
     data class Error(val message: String, val cause: Exception? = null) : UpgradeResult()
 

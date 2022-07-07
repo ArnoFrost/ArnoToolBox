@@ -20,7 +20,7 @@ object ZipUtil {
             var outputStream: OutputStream?
             var inputStream: InputStream?
             val zf = ZipFile(zipFile)
-            val entries = zf.entries()
+             val entries = zf.entries()
             while (entries.hasMoreElements()) {
                 val zipEntry: ZipEntry = entries.nextElement() as ZipEntry
                 val zipEntryName: String = zipEntry.name
@@ -54,7 +54,11 @@ object ZipUtil {
             parentFile.mkdirs()
         }
         if (!file.exists()) {
-            file.createNewFile()
+            if (file.isDirectory) {
+                file.mkdir()
+            }else if (file.isFile) {
+                file.createNewFile()
+            }
         }
         return file
     }

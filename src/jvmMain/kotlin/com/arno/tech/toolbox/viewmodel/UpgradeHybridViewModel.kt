@@ -3,11 +3,12 @@ package com.arno.tech.toolbox.viewmodel
 import com.arno.tech.toolbox.model.UpgradeResult
 import com.arno.tech.toolbox.util.DownloadResult
 import com.arno.tech.toolbox.util.FileUtils
+import com.arno.tech.toolbox.util.ZipUtil
 import com.arno.tech.toolbox.util.downloadFile
-import com.arno.tech.toolbox.util.unzipFile
 import io.ktor.client.*
 import io.ktor.client.engine.java.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,6 +26,9 @@ class UpgradeHybridViewModel : ViewController() {
         private val HYBRID_PATTERN_REG = Regex("(\\d.\\d.\\d+)(-\\w+)?(?=/)")
         private val PROJECT_ASSERT_SUFFIX = "/SinaNews/src/main/assets/article_v2"
         private val COMMIT_DEFAULT_TEMPLATE = "升级正文 Hb 模板 "
+        private val TEMP_RESOURCE_NAME = "index.zip"
+        private val TEMP_FOLDER_NAME = "index"
+
     }
 
     private val _client = HttpClient(Java)
@@ -138,7 +142,7 @@ class UpgradeHybridViewModel : ViewController() {
             //1. step on download resource zip
             val file = withContext(Dispatchers.IO) {
                 FileUtils.mkDir(_cachePath.value + "/$versionNumber")
-                File(_cachePath.value + "/$versionNumber/index.zip")
+                File(_cachePath.value + "/$versionNumber/$TEMP_RESOURCE_NAME")
             }
 //            val totalStep = getTotalStep()
             client.downloadFile(_downloadHybridUrl.value, file)
@@ -155,9 +159,7 @@ class UpgradeHybridViewModel : ViewController() {
                 .map {
                     appendLogString("开始解压缩: >>>>>>>>>>>>>>>>>>")
                     println("开始解压缩: >>>>>>>>>>>>>>>>>>")
-                    withContext(Dispatchers.IO) {
-                        file.unzipFile(_cachePath.value)
-                    }
+                    ZipUtil.unzip(file.absolutePath, _cachePath.value + "/$versionNumber/$TEMP_FOLDER_NAME")
                 }
                 //判定加过滤step 3 条件
                 .filter { _isAutoReplace.value && it }
@@ -171,30 +173,40 @@ class UpgradeHybridViewModel : ViewController() {
                     appendLogString("开始提交: >>>>>>>>>>>>>>>>>>")
                     println("开始提交: >>>>>>>>>>>>>>>>>>")
                     doGitCommit(COMMIT_DEFAULT_TEMPLATE + versionNumber, _rootProjectPath.value)
-                }.onCompletion {
-                    it?.let {
-                        appendLogString("发生异常终止: <<<<<<<<<<< $it", true)
-                        println("发生异常终止: <<<<<<<<<<< $it")
-                    }
+                }
+                .catch {
+                    appendLogString("发生异常终止: <<<<<<<<<<< $it", true)
+                    println("发生异常终止: <<<<<<<<<<< $it")
+                }
+                .onCompletion {
                     appendLogString("操作结束: >>>>>>>>>>>>>>>>>>")
                     println("提交结束: >>>>>>>>>>>>>>>>>>")
                 }
-                .collect()
+                .collect {
+                    when (it) {
+                        is UpgradeResult.Success -> {
+                            appendLogString("完成操作: >>>>>>>>>>>>>>>>>>")
+                            println("UpgradeResult.Success")
+                        }
+                        is UpgradeResult.Error -> {
+                            appendLogString("发生异常终止: <<<<<<<<<<< $it", true)
+                            println("发生异常终止: <<<<<<<<<<< $it")
+                        }
+                        is UpgradeResult.Progress -> {
+                            // TODO: 2022/7/7
+                        }
+                    }
+                }
 
         }
     }
 
-    private suspend fun replaceFile(file: File, dstDir: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            FileUtils.moveFilesTo(file, File(dstDir))
-        }
+    private fun replaceFile(file: File, dstDir: String): Boolean {
+        return FileUtils.moveFilesTo(file, File(dstDir))
     }
 
-    private suspend fun doGitCommit(commitMessage: String, gitRoot: String): UpgradeResult {
-        // TODO: 2022/7/6
-        return withContext(Dispatchers.IO) {
-            UpgradeResult.Finish
-        }
+    private fun doGitCommit(commitMessage: String, gitRoot: String): UpgradeResult {
+        return UpgradeResult.Success
     }
 
     private fun getTotalStep(): Int {
