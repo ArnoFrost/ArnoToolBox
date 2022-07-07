@@ -1,10 +1,9 @@
 package com.arno.tech.toolbox.viewmodel
 
 import com.arno.tech.toolbox.model.UpgradeResult
-import com.arno.tech.toolbox.util.DownloadResult
-import com.arno.tech.toolbox.util.FileUtils
-import com.arno.tech.toolbox.util.ZipUtil
-import com.arno.tech.toolbox.util.downloadFile
+import com.arno.tech.toolbox.util.*
+import com.github.syari.kgit.KGit
+import com.github.syari.kgit.KGitCommand
 import io.ktor.client.*
 import io.ktor.client.engine.java.*
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +11,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.eclipse.jgit.api.AddCommand
 import java.io.File
 
 /**
@@ -24,10 +24,11 @@ class UpgradeHybridViewModel : ViewController() {
         //http://mjs.sinaimg.cn//wap/project/snal_v2/7.3.63/index/index.php
         //http://mjs.sinaimg.cn//wap/project/snal_v2/7.3.63-test/index/index.php
         private val HYBRID_PATTERN_REG = Regex("(\\d.\\d.\\d+)(-\\w+)?(?=/)")
-        private val PROJECT_ASSERT_SUFFIX = "/SinaNews/src/main/assets/article_v2"
-        private val COMMIT_DEFAULT_TEMPLATE = "升级正文 Hb 模板 "
-        private val TEMP_RESOURCE_NAME = "index.zip"
-        private val TEMP_FOLDER_NAME = "index"
+        private const val PROJECT_ASSERT_SUFFIX = "/SinaNews/src/main/assets/article_v2"
+        private const val COMMIT_DEFAULT_TEMPLATE = "升级正文 Hb 模板 "
+        private const val TEMP_RESOURCE_NAME = "index.zip"
+        private const val TEMP_FOLDER_NAME = "index"
+        private const val NEED_DELETE_FILE_JSON = "version.json"
 
     }
 
@@ -159,13 +160,13 @@ class UpgradeHybridViewModel : ViewController() {
                 .map {
                     appendLogString("开始解压缩: >>>>>>>>>>>>>>>>>>")
                     println("开始解压缩: >>>>>>>>>>>>>>>>>>")
-                    ZipUtil.unzip(file.absolutePath, _cachePath.value + "/$versionNumber/$TEMP_FOLDER_NAME")
+                    file.unzip(_cachePath.value + "/$versionNumber/$TEMP_FOLDER_NAME")
                 }
                 //判定加过滤step 3 条件
                 .filter { _isAutoReplace.value && it }
                 .map {
                     appendLogString("开始替换文件: >>>>>>>>>>>>>>>>>>")
-                    replaceFile(file, _rootProjectPath.value + PROJECT_ASSERT_SUFFIX)
+                    replaceFile(File(_cachePath.value + "/$versionNumber/$TEMP_FOLDER_NAME"), _rootProjectPath.value + PROJECT_ASSERT_SUFFIX, versionNumber)
                 }
                 //判定加过滤step 4 条件
                 .filter { _isAutoCommit.value }
@@ -201,11 +202,28 @@ class UpgradeHybridViewModel : ViewController() {
         }
     }
 
-    private fun replaceFile(file: File, dstDir: String): Boolean {
-        return FileUtils.moveFilesTo(file, File(dstDir))
+    private fun replaceFile(file: File, dstDir: String, versionNumber: String): Boolean {
+        //region 删除无用文件
+        if (file.exists() && file.isDirectory) {
+            file.listFiles()?.filter {
+                it.name.equals(versionNumber) || it.name.equals(NEED_DELETE_FILE_JSON)
+            }?.let {
+                it.forEach { needDeleteFile -> needDeleteFile.delete() }
+            }
+        }
+        //endregion
+        return FileUtils.copyFilesTo(file, File(dstDir))
     }
 
     private fun doGitCommit(commitMessage: String, gitRoot: String): UpgradeResult {
+        val git = KGit.open(File(gitRoot))
+        git.add {
+            isUpdate = true
+            addFilepattern(".")
+        }
+        git.commit {
+            this.message = commitMessage
+        }
         return UpgradeResult.Success
     }
 

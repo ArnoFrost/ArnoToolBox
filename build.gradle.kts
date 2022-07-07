@@ -31,6 +31,7 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3")
                 implementation("io.ktor:ktor-client-core:$ktorVersion")
                 implementation("io.ktor:ktor-client-java:$ktorVersion")
+                implementation("com.github.sya-ri:kgit:1.0.5")
 
             }
         }

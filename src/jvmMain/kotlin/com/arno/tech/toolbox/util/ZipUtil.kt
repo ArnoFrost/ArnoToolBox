@@ -3,97 +3,75 @@ package com.arno.tech.toolbox.util
 import java.io.*
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-suspend fun File.unzipFile(descDir: String) = suspendCoroutine<Boolean> { continuation ->
-    continuation.resume(ZipUtil.unzip(this.absolutePath, descDir))
+fun File.unzip(destDirectory: String): Boolean {
+    return ZipUtil.unzip(this, destDirectory)
 }
 
 object ZipUtil {
-    fun unzip(zipFile: String, descDir: String): Boolean {
-        var result: Boolean
+    /**
+     * @param zipFilePath
+     * @param destDirectory
+     * @throws IOException
+     */
+    @Throws(IOException::class)
+    fun unzip(zipFilePath: File, destDirectory: String): Boolean {
+        var result = false
+        File(destDirectory).run {
+            if (!exists()) {
+                mkdirs()
+            }
+        }
+
         try {
+            ZipFile(zipFilePath).use { zip ->
+                zip.entries().asSequence().forEach { entry ->
+                    zip.getInputStream(entry).use { input ->
 
-            val buffer = ByteArray(1024)
-            var outputStream: OutputStream?
-            var inputStream: InputStream?
-            val zf = ZipFile(zipFile)
-             val entries = zf.entries()
-            while (entries.hasMoreElements()) {
-                val zipEntry: ZipEntry = entries.nextElement() as ZipEntry
-                val zipEntryName: String = zipEntry.name
+                        val filePath = destDirectory + File.separator + entry.name
 
-                inputStream = zf.getInputStream(zipEntry)
-                inputStream?.use { ips ->
-                    val descFilePath: String = descDir + File.separator + zipEntryName
-                    val descFile: File = createFile(descFilePath)
-                    outputStream = FileOutputStream(descFile)
-                    outputStream?.use { ops ->
-                        var len: Int
-                        while (ips.read(buffer).also { len = it } > 0) {
-                            ops.write(buffer, 0, len)
+                        if (!entry.isDirectory) {
+                            // if the entry is a file, extracts it
+                            extractFile(input, filePath)
+                        } else {
+                            // if the entry is a directory, make the directory
+                            val dir = File(filePath)
+                            dir.mkdir()
                         }
                     }
                 }
             }
             result = true
         } catch (e: Exception) {
+            println(e)
             result = false
         }
-
         return result
-
     }
 
-    private fun createFile(filePath: String): File {
-        val file = File(filePath)
-        val parentFile = file.parentFile!!
-        if (!parentFile.exists()) {
-            parentFile.mkdirs()
+    /**
+     * Extracts a zip entry (file entry)
+     * @param inputStream
+     * @param destFilePath
+     * @throws IOException
+     */
+    @Throws(IOException::class)
+    private fun extractFile(inputStream: InputStream, destFilePath: String) {
+        val bos = BufferedOutputStream(FileOutputStream(destFilePath))
+        val bytesIn = ByteArray(BUFFER_SIZE)
+        var read: Int
+        while (inputStream.read(bytesIn).also { read = it } != -1) {
+            bos.write(bytesIn, 0, read)
         }
-        if (!file.exists()) {
-            if (file.isDirectory) {
-                file.mkdir()
-            }else if (file.isFile) {
-                file.createNewFile()
-            }
-        }
-        return file
+        bos.close()
     }
 
-    fun zip(files: List<File>, zipFilePath: String) {
-        if (files.isEmpty()) return
-
-        val zipFile = createFile(zipFilePath)
-        val buffer = ByteArray(1024)
-        var zipOutputStream: ZipOutputStream? = null
-        var inputStream: FileInputStream? = null
-        try {
-            zipOutputStream = ZipOutputStream(FileOutputStream(zipFile))
-            for (file in files) {
-                if (!file.exists()) continue
-                zipOutputStream.putNextEntry(ZipEntry(file.name))
-                inputStream = FileInputStream(file)
-                var len: Int
-                while (inputStream.read(buffer).also { len = it } > 0) {
-                    zipOutputStream.write(buffer, 0, len)
-                }
-                zipOutputStream.closeEntry()
-            }
-        } finally {
-            inputStream?.close()
-            zipOutputStream?.close()
-        }
-    }
-
-    fun zipByFolder(fileDir: String, zipFilePath: String) {
-        val folder = File(fileDir)
-        if (folder.exists() && folder.isDirectory) {
-            val files = folder.listFiles()
-            val filesList: List<File> = files.toList()
-            zip(filesList, zipFilePath)
-        }
-    }
+    /**
+     * Size of the buffer to read/write data
+     */
+    private const val BUFFER_SIZE = 4096
 }
